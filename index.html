@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOOI Cat UI</title>
+    
+    <!-- Tailwind CSS --><script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome (Icons) --><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8F4FF; /* Цайвар ягаан суурь */
+            overflow-x: hidden; /* Хэвтээ скролмыг нуух */
+        }
+        /* Пиксел хэв маягийн хүрээний стиль */
+        .pixel-border-sm {
+            border-radius: 4px; /* Жижиг пиксел ирмэг */
+        }
+        .pixel-border-md {
+            border-radius: 8px; /* Дунд зэргийн пиксел ирмэг */
+        }
+        .pixel-border-lg {
+            border-radius: 12px; /* Том пиксел ирмэг */
+        }
+        .pixel-border-xl {
+            border-radius: 16px; /* Маш том пиксел ирмэг */
+        }
+
+        /* Хажуугийн цэсний transition */
+        .sidebar {
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(-100%);
+        }
+        .sidebar.open {
+            transform: translateX(0);
+        }
+        .overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            transition: opacity 0.3s ease-in-out;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        /* Chat history scrollbar style */
+        #chat-history::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-history::-webkit-scrollbar-thumb {
+            background-color: #BE89F1;
+            border-radius: 4px;
+        }
+        #chat-history::-webkit-scrollbar-track {
+            background-color: #E0B8FF;
+        }
+
+        /* --- ШИНЭ v15: Sidebar-н идэвхтэй товч --- */
+        .sidebar-button.active {
+            background-color: #F6EDFE; /* Цайвар ягаан */
+            border-right: 4px solid #BE89F1; /* Ягаан зураас */
+        }
+
+        /* --- ШИНЭ v18: Нүдний хэмжээний өөрчлөлтийг жигд болгох --- */
+        #left-eye, #right-eye {
+            transition: all 0.2s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-[#F8F4FF] min-h-screen">
+
+    <!-- 1. ҮНДСЭН БҮТЭЦ --><div class="flex"> 
+
+        <!-- 2. Хажуугийн цэс (Sidebar) - ШИНЭЧЛЭЛТ v15 --><aside id="sidebar" class="sidebar fixed top-0 left-0 h-full w-20 bg-white shadow-lg z-40 flex flex-col items-center py-4 space-y-4 md:relative md:transform-none md:translate-x-0">
+            
+            <!-- Хаах товч (Mobile) --><button id="sidebar-toggle" class="md:hidden p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400 absolute top-2 right-2">
+                <i class="fas fa-times text-gray-600 text-xl"></i>
+            </button>
+            
+            <!-- Цэсний товч (Bars) --><button class="menu-button p-2 bg-[#EAEAEA] rounded-md focus:outline-none w-10 h-10 flex items-center justify-center mt-4">
+                <i class="fas fa-bars text-gray-600"></i>
+            </button>
+            
+            <!-- Цэсний Label-ууд (ШИНЭ v15) -->
+            <div class="w-full flex flex-col items-center space-y-2 py-4">
+                
+                <!-- Chat товч -->
+                <button id="btn-nav-chat" class="sidebar-button active flex flex-col items-center justify-center p-2 rounded-l-md hover:bg-gray-100 focus:outline-none w-full h-16">
+                    <i class="fas fa-comments text-purple-500 mb-1"></i>
+                    <span class="text-xs text-gray-700">Chat</span>
+                </button>
+                
+                <!-- Face товч -->
+                <button id="btn-nav-face" class="sidebar-button flex flex-col items-center justify-center p-2 rounded-l-md hover:bg-gray-100 focus:outline-none w-full h-16">
+                    <i class="fas fa-smile text-purple-500 mb-1"></i>
+                    <span class="text-xs text-gray-700">Face</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- 3. Overlay (Mobile цэс нээгдэх үед) --><div id="overlay" class="overlay fixed inset-0 z-30 hidden md:hidden"></div>
+
+        <!-- 4. Үндсэн агуулга --><main class="flex-grow p-6 flex flex-col items-center justify-center min-h-screen relative z-20">
+            
+            <!-- Цэс нээх товч (Mobile) --><button id="menu-toggle" class="md:hidden absolute top-4 left-4 p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-400">
+                <i class="fas fa-bars text-gray-600 text-xl"></i>
+            </button>
+
+            <!-- 5. Хөөрхөн муурны нүүр (ШИНЭ v16 - Хэмжээ/Байршлыг JS удирдана) -->
+            <div id="face-container" class="relative w-[260px] h-[260px] bg-white pixel-border-xl shadow-xl flex items-center justify-center flex-col p-4 mb-10" style="transition: all 0.3s ease-in-out;">
+                
+                <!-- Чихнүүд (ID-тай болсон) --><div id="ears-container" class="absolute top-[-35px] left-1/2 -translate-x-1/2 w-[160px] h-[70px] z-10 flex justify-between transition-all duration-300">
+                    <!-- Зүүн чих --><div class="w-[70px] h-[70px] bg-white pixel-border-xl relative flex justify-center items-center">
+                        <!-- Ягаан гурвалжин --><div class="w-0 h-0 border-l-[22px] border-l-transparent border-r-[22px] border-r-transparent border-b-[35px] border-b-[#FFC0D8] absolute bottom-3"></div>
+                    </div>
+                    <!-- Баруун чих --><div class="w-[70px] h-[70px] bg-white pixel-border-xl relative flex justify-center items-center">
+                        <!-- Ягаан гурвалжин --><div class="w-0 h-0 border-l-[22px] border-l-transparent border-r-[22px] border-r-transparent border-b-[35px] border-b-[#FFC0D8] absolute bottom-3"></div>
+                    </div>
+                </div>
+
+                <!-- Нүднүүд (ID-тай болсон) --><div id="eyes-container" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[25%] flex space-x-6 transition-all duration-300">
+                    
+                    <!-- Зүүн нүд (Цэнхэр) --><div id="left-eye" class="w-14 h-14 bg-blue-500 pixel-border-lg flex items-center justify-center relative overflow-hidden rounded-lg transition-all duration-200">
+                        <!-- Гэрэл/Shine --><div class="absolute w-10 h-10 bg-white rounded-full opacity-30 top-2 left-2"></div>
+                        <div class="absolute w-5 h-5 bg-white rounded-full opacity-60 top-1 left-7"></div>
+                        <div class="absolute w-3 h-3 bg-white rounded-full opacity-80 top-6 left-1"></div>
+                        <div class="absolute w-3 h-3 bg-[#70E0D1] pixel-border-sm bottom-1 right-1"></div>
+                        <div class="absolute w-3 h-3 bg-[#70E0D1] pixel-border-sm top-1 right-1"></div>
+                    </div>
+                    
+                    <!-- Баруун нүд (Цэнхэр) --><div id="right-eye" class="w-14 h-14 bg-blue-500 pixel-border-lg flex items-center justify-center relative overflow-hidden rounded-lg transition-all duration-200">
+                        <!-- Гэрэл/Shine --><div class="absolute w-10 h-10 bg-white rounded-full opacity-30 top-2 left-2"></div>
+                        <div class="absolute w-5 h-5 bg-white rounded-full opacity-60 top-1 left-7"></div>
+                        <div class="absolute w-3 h-3 bg-white rounded-full opacity-80 top-6 left-1"></div>
+                        <div class="absolute w-3 h-3 bg-[#70E0D1] pixel-border-sm bottom-1 right-1"></div>
+                        <div class="absolute w-3 h-3 bg-[#70E0D1] pixel-border-sm top-1 right-1"></div>
+                    </div>
+                </div>
+                
+                <!-- ХӨМСӨГ (ШИНЭ ЗАГВАР, БАЙРШИЛ) -->
+                <div id="left-eyebrow" class="absolute top-[35%] left-[30%] w-3 h-3 bg-blue-400 rounded-sm z-10 transition-all duration-300"></div>
+                <div id="right-eyebrow" class="absolute top-[35%] right-[30%] w-3 h-3 bg-blue-400 rounded-sm z-10 transition-all duration-300"></div>
+
+
+                <!-- Хамар ба Ам (Байршил: bottom-[30%]) --><div id="mouth-container" class="absolute bottom-[30%] left-1/2 -translate-x-1/2 flex flex-col items-center">
+                    <!-- JS Энэ хэсгийг удирдана -->
+                    <div id="nose" class="w-5 h-3 bg-[#FFC0D8] pixel-border-sm mx-auto mb-1"></div>
+                    <div id="mouth" class="w-10 h-2 bg-gray-900 pixel-border-sm relative -top-1"></div> <!-- 2. АМ ХАР БОЛСОН -->
+                </div>
+
+                <!-- 3. САХАЛ (ӨНГӨ ХАР СААРАЛ БОЛСОН) -->
+                <div id="whiskers-left" class="absolute left-8 bottom-[30%] flex flex-col space-y-2 transition-all duration-200" style="transform-origin: right center;">
+                    <div class="w-10 h-[1px] bg-gray-600 pixel-border-sm rotate-12"></div>
+                    <div class="w-12 h-[1px] bg-gray-600 pixel-border-sm"></div>
+                    <div class="w-10 h-[1px] bg-gray-600 pixel-border-sm -rotate-12"></div>
+                </div>
+                <div id="whiskers-right" class="absolute right-8 bottom-[30%] flex flex-col space-y-2 transition-all duration-200" style="transform-origin: left center;">
+                    <div class="w-10 h-[1px] bg-gray-600 pixel-border-sm -rotate-12"></div>
+                    <div class="w-12 h-[1px] bg-gray-600 pixel-border-sm"></div>
+                    <div class="w-10 h-[1px] bg-gray-600 pixel-border-sm rotate-12"></div>
+                </div>
+                
+            </div>
+            
+            <!-- 6. CHAT PAGE CONTENT (ШИНЭ v15 - "chat-section" дотор орсон) -->
+            <div id="chat-section" class="w-full">
+                <!-- Emotion Mode Товчнууд -->
+                <div class="flex flex-wrap justify-center gap-4 mb-8">
+                    <button id="btn-happy" class="flex items-center space-x-2 px-4 py-2 bg-[#BE89F1] text-white pixel-border-md shadow-md hover:bg-[#A974E0] transition duration-200">
+                        <i class="fas fa-smile text-white text-sm"></i>
+                        <span class="text-sm font-medium">Happy</span>
+                    </button>
+                    <button id="btn-sad" class="flex items-center space-x-2 px-4 py-2 bg-[#BE89F1] text-white pixel-border-md shadow-md hover:bg-[#A974E0] transition duration-200">
+                        <i class="fas fa-frown text-white text-sm"></i>
+                        <span class="text-sm font-medium">Sad</span>
+                    </button>
+                    <button id="btn-angry" class="flex items-center space-x-2 px-4 py-2 bg-[#BE89F1] text-white pixel-border-md shadow-md hover:bg-[#A974E0] transition duration-200">
+                        <i class="fas fa-angry text-white text-sm"></i>
+                        <span class="text-sm font-medium">Angry</span>
+                    </button>
+                    <button id="btn-surprised" class="flex items-center space-x-2 px-4 py-2 bg-[#BE89F1] text-white pixel-border-md shadow-md hover:bg-[#A974E0] transition duration-200">
+                        <i class="fas fa-surprise text-white text-sm"></i>
+                        <span class="text-sm font-medium">Surprised</span>
+                    </button>
+                    <button id="btn-calm" class="flex items-center space-x-2 px-4 py-2 bg-[#BE89F1] text-white pixel-border-md shadow-md hover:bg-[#A974E0] transition duration-200">
+                        <i class="fas fa-meh text-white text-sm"></i>
+                        <span class="text-sm font-medium">Calm</span>
+                    </button>
+                </div>
+
+                <!-- CHATGPT CHAT BOX (v14 - max-w-lg) -->
+                <div class="w-full max-w-lg mx-auto">
+                    <!-- Chat History Display -->
+                    <div id="chat-history" class="h-48 p-3 bg-white pixel-border-lg shadow-inner overflow-y-auto mb-2">
+                        <!-- Chat messages will be appended here -->
+                        <div class="mb-2">
+                            <span class="font-bold text-purple-600">LOOI:</span>
+                            <span class="text-gray-700">Сайн уу! Надаас юу ч хамаагүй асуугаарай.</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Chat Input -->
+                    <div class="flex gap-2">
+                        <input type="text" id="chat-input" class="flex-grow px-4 py-2 bg-white pixel-border-lg shadow-md focus:outline-none focus:ring-2 focus:ring-purple-400" placeholder="Асуултаа энд бичнэ үү...">
+                        <button id="send-button" class="px-4 py-2 bg-[#BE89F1] text-white pixel-border-md shadow-md hover:bg-[#A974E0] transition duration-200">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7. ШИНЭ v16: Fullscreen Товч (Face хуудас дээр гарч ирнэ) -->
+            <button id="fullscreen-button" class="hidden mt-4 px-4 py-2 bg-[#BE89F1] text-white pixel-border-md shadow-md hover:bg-[#A974E0] transition duration-200">
+                <i class="fas fa-expand"></i>
+                <span class="ml-2">Full Screen</span>
+            </button>
+            
+        </main>
+    </div>
+
+    <!-- Javascript (Mobile цэс + Emotion Logic v18 + Server Chat + Navigation) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- Sidebar Logic ---
+            const sidebar = document.getElementById('sidebar');
+            const menuToggle = document.getElementById('menu-toggle');
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const overlay = document.getElementById('overlay');
+
+            function toggleSidebar() {
+                sidebar.classList.toggle('open');
+                overlay.classList.toggle('open');
+                if (sidebar.classList.contains('open')) {
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.overflow = '';
+                }
+            }
+            menuToggle.addEventListener('click', toggleSidebar);
+            sidebarToggle.addEventListener('click', toggleSidebar);
+            overlay.addEventListener('click', toggleSidebar);
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 768) {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('open');
+                    document.body.style.overflow = '';
+                }
+            });
+
+            // --- v16: Navigation Logic ---
+            const btnNavChat = document.getElementById('btn-nav-chat');
+            const btnNavFace = document.getElementById('btn-nav-face');
+            const chatSection = document.getElementById('chat-section');
+            const faceContainer = document.getElementById('face-container');
+            const fullscreenButton = document.getElementById('fullscreen-button'); 
+            
+            // Нүүрний хэсгүүдийн ID-ууд
+            const earsContainer = document.getElementById('ears-container');
+            const eyesContainer = document.getElementById('eyes-container');
+            const leftEyebrow = document.getElementById('left-eyebrow');
+            const rightEyebrow = document.getElementById('right-eyebrow');
+            const mouthContainer = document.getElementById('mouth-container');
+            const whiskersLeft = document.getElementById('whiskers-left');
+            const whiskersRight = document.getElementById('whiskers-right');
+
+            // Нүүрний хэмжээний тохиргоо
+            const faceDefaultClasses = ['w-[260px]', 'h-[260px]', 'mb-10'];
+            const faceModeClasses = ['w-[90vw]', 'h-[60vw]', 'max-w-[800px]', 'max-h-[500px]', 'mb-4']; 
+
+            function showChatPage() {
+                // Chat хэсгийг харуулах
+                chatSection.classList.remove('hidden');
+                fullscreenButton.classList.add('hidden'); 
+                
+                // Нүүрний хэмжээг жижигсгэх
+                faceContainer.classList.remove(...faceModeClasses);
+                faceContainer.classList.add(...faceDefaultClasses);
+                
+                // Нүүрний хэсгүүдийн байршлыг буцаах
+                earsContainer.classList.remove('w-[80%]');
+                eyesContainer.classList.remove('space-x-24');
+                eyesContainer.classList.add('space-x-6');
+                leftEyebrow.classList.remove('left-[20%]', 'top-[30%]', 'top-[33%]', 'top-[38%]', '-rotate-15', 'rotate-15');
+                leftEyebrow.classList.add('left-[30%]', 'top-[35%]');
+                rightEyebrow.classList.remove('right-[20%]', 'top-[30%]', 'top-[33%]', 'top-[38%]', '-rotate-15', 'rotate-15');
+                rightEyebrow.classList.add('right-[30%]', 'top-[35%]');
+
+                // v18: Нүдний хэмжээг буцааж тохируулах
+                resetFace(); // Эмоц болон нүдний хэмжээг reset хийх
+
+                // Товчны active төлөв
+                btnNavChat.classList.add('active');
+                btnNavFace.classList.remove('active');
+            }
+
+            function showFacePage() {
+                // Chat хэсгийг нуух
+                chatSection.classList.add('hidden');
+                fullscreenButton.classList.remove('hidden'); 
+                
+                // Нүүрний хэмжээг томруулах
+                faceContainer.classList.remove(...faceDefaultClasses);
+                faceContainer.classList.add(...faceModeClasses);
+                
+                // v16: Нүүрний хэсгүүдийг хэвтээ хэлбэрт тохируулах
+                earsContainer.classList.add('w-[80%]'); // Чихнүүдийг холдуулах
+                eyesContainer.classList.add('space-x-24'); // Нүднүүдийг холдуулах
+                eyesContainer.classList.remove('space-x-6');
+                leftEyebrow.classList.remove('left-[30%]', 'top-[30%]', 'top-[33%]', 'top-[38%]', '-rotate-15', 'rotate-15');
+                leftEyebrow.classList.add('left-[20%]', 'top-[35%]'); // Хөмсгийг холдуулах
+                rightEyebrow.classList.remove('right-[30%]', 'top-[30%]', 'top-[33%]', 'top-[38%]', '-rotate-15', 'rotate-15');
+                rightEyebrow.classList.add('right-[20%]', 'top-[35%]'); // Хөмсгийг холдуулах
+
+                // v18: Нүдний хэмжээг тохируулах
+                resetFace(); // Эмоц болон нүдний хэмжээг reset хийх
+
+                // Товчны active төлөв
+                btnNavChat.classList.remove('active');
+                btnNavFace.classList.add('active');
+            }
+
+            btnNavChat.addEventListener('click', showChatPage);
+            btnNavFace.addEventListener('click', showFacePage);
+            
+            // --- v16: Fullscreen Logic ---
+            function goFullScreen() {
+                if (faceContainer.requestFullscreen) {
+                    faceContainer.requestFullscreen();
+                } else if (faceContainer.mozRequestFullScreen) { // Firefox
+                    faceContainer.mozRequestFullScreen();
+                } else if (faceContainer.webkitRequestFullscreen) { // Chrome, Safari, Opera
+                    faceContainer.webkitRequestFullscreen();
+                } else if (faceContainer.msRequestFullscreen) { // IE/Edge
+                    faceContainer.msRequestFullscreen();
+                }
+            }
+            fullscreenButton.addEventListener('click', goFullScreen);
+            // --- Navigation Logic Дууссан ---
+            
+
+            // --- Emotion Logic (ШИНЭЧЛЭЛТ v18 - Scale-гүй, Mode-той ажилладаг) ---
+            const rightEye = document.getElementById('right-eye');
+            const leftEye = document.getElementById('left-eye');
+            
+            // Нүдний анхны class-уудыг хадгалах (w-14, h-14-г хасах)
+            const defaultEyeBaseClasses = leftEye.className.replace('w-14', '').replace('h-14', '').trim();
+            
+            // v18: ШИНЭ АМНЫ ЗАГВАРУУД
+            const calmMouthHTML = `
+                <div id="nose" class="w-5 h-3 bg-[#FFC0D8] pixel-border-sm mx-auto mb-1"></div>
+                <div id="mouth" class="flex justify-center -space-x-[2px] relative -top-1">
+                    <div class="flex -space-x-px">
+                         <div class="w-2 h-3 bg-gray-900 pixel-border-sm" style="transform: rotate(45deg)"></div>
+                         <div class="w-2 h-3 bg-gray-900 pixel-border-sm" style="transform: rotate(-45deg)"></div>
+                    </div>
+                     <div class="flex -space-x-px">
+                         <div class="w-2 h-3 bg-gray-900 pixel-border-sm" style="transform: rotate(45deg)"></div>
+                         <div class="w-2 h-3 bg-gray-900 pixel-border-sm" style="transform: rotate(-45deg)"></div>
+                    </div>
+                </div>`;
+
+            const happyMouthHTML = `
+                <div id="nose" class="w-5 h-3 bg-[#FFC0D8] pixel-border-sm mx-auto mb-1"></div>
+                <div id="mouth" class="w-10 h-3 bg-gray-900 pixel-border-sm relative -top-0" style="border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;"></div>`;
+            
+            const sadMouthHTML = `
+                <div id="nose" class="w-5 h-3 bg-[#FFC0D8] pixel-border-sm mx-auto mb-1"></div>
+                <div id="mouth" class="w-10 h-3 bg-gray-900 pixel-border-sm relative -top-0" style="border-top-left-radius: 8px; border-top-right-radius: 8px;"></div>`;
+            
+            const angryMouthHTML = `
+                <div id="nose" class="w-5 h-3 bg-[#FFC0D8] pixel-border-sm mx-auto mb-1"></div>
+                <div id="mouth" class="w-10 h-2 bg-gray-900 pixel-border-sm relative -top-0"></div>`; // Ууртай үед тэгш ам
+            
+            const surprisedMouthHTML = `
+                <div id="nose" class="w-5 h-3 bg-[#FFC0D8] pixel-border-sm mx-auto mb-1"></div>
+                <div id="mouth" class="w-5 h-5 bg-gray-900 pixel-border-sm rounded-full relative -top-0"></div>`;
+            
+            // v18: ШИНЭ ТУСЛАХ ФУНКЦ
+            function getEyeClasses(emotion = 'calm') {
+                const isFaceMode = chatSection.classList.contains('hidden');
+                
+                // [base, happy, sad, angry, surprised]
+                // "Face" хуудас дээрх хэмжээ (w-40, h-40 г.м.)
+                // "Chat" хуудас дээрх хэмжээ (w-14, h-14 г.м.)
+                const sizes = isFaceMode 
+                    ? ['w-40 h-40', 'w-40 h-36', 'w-40 h-40', 'w-40 h-32', 'w-44 h-44'] // Том хэмжээ (160px)
+                    : ['w-14 h-14', 'w-14 h-12', 'w-14 h-14', 'w-14 h-10', 'w-16 h-16']; // Жижиг хэмжээ (56px)
+
+                let classNames = '';
+                switch(emotion) {
+                    case 'happy': classNames = sizes[1]; break;
+                    case 'sad': classNames = sizes[2]; break;
+                    case 'angry': classNames = sizes[3]; break;
+                    case 'surprised': classNames = sizes[4]; break;
+                    case 'calm': 
+                    default: classNames = sizes[0]; break;
+                }
+                
+                // Анхны class-ууд дээр хэмжээний class-г нэмэх
+                return `${defaultEyeBaseClasses} ${classNames}`;
+            }
+
+            function resetFace() {
+                // v18: Хөмсөгний байршлыг цэвэрлэх
+                const eyebrowBaseClasses = 'absolute bg-blue-400 rounded-sm z-10 transition-all duration-300 w-3 h-3';
+                leftEyebrow.className = eyebrowBaseClasses;
+                rightEyebrow.className = eyebrowBaseClasses;
+                
+                if (chatSection.classList.contains('hidden')) { // Face mode
+                    leftEyebrow.classList.add('top-[35%]', 'left-[20%]');
+                    rightEyebrow.classList.add('top-[35%]', 'right-[20%]');
+                } else { // Chat mode
+                    leftEyebrow.classList.add('top-[35%]', 'left-[30%]');
+                    rightEyebrow.classList.add('top-[35%]', 'right-[30%]');
+                }
+                
+                // v18: Scale-г арилгасан
+                earsContainer.style.transform = '';
+                eyesContainer.style.transform = '';
+                mouthContainer.style.transform = '';
+                leftEyebrow.style.transform = '';
+                rightEyebrow.style.transform = '';
+                whiskersLeft.style.transform = '';
+                whiskersRight.style.transform = '';
+
+                // v18: Шинэ функц ашиглан нүд, амыг reset хийх
+                leftEye.className = getEyeClasses('calm');
+                rightEye.className = getEyeClasses('calm');
+                mouthContainer.innerHTML = calmMouthHTML; 
+            }
+
+            function setHappy() {
+                resetFace();
+                mouthContainer.innerHTML = happyMouthHTML;
+                leftEye.className = getEyeClasses('happy');
+                rightEye.className = getEyeClasses('happy');
+                
+                // v18: Хөмсөгний байршлыг өөрчлөх
+                leftEyebrow.classList.remove('top-[35%]');
+                leftEyebrow.classList.add('top-[33%]');
+                rightEyebrow.classList.remove('top-[35%]');
+                rightEyebrow.classList.add('top-[33%]');
+            }
+
+            function setSad() {
+                resetFace();
+                mouthContainer.innerHTML = sadMouthHTML;
+                
+                // v18: Хөмсөгний байршлыг өөрчлөх
+                leftEyebrow.classList.add('-rotate-15');
+                rightEyebrow.classList.add('rotate-15');
+            }
+
+            function setAngry() {
+                resetFace();
+                mouthContainer.innerHTML = angryMouthHTML; // v18: Шинэ ам
+                leftEye.className = getEyeClasses('angry');
+                rightEye.className = getEyeClasses('angry');
+
+                // v18: Хөмсөгний байршлыг өөрчлөх
+                leftEyebrow.classList.remove('top-[35%]');
+                leftEyebrow.classList.add('top-[38%]', 'rotate-15');
+                rightEyebrow.classList.remove('top-[35%]');
+                rightEyebrow.classList.add('top-[38%]', '-rotate-15');
+            }
+
+            function setSurprised() {
+                resetFace();
+                mouthContainer.innerHTML = surprisedMouthHTML;
+                leftEye.className = getEyeClasses('surprised');
+                rightEye.className = getEyeClasses('surprised');
+                
+                // v18: Хөмсөг, Сахалны хөдөлгөөнийг өөрчлөх
+                leftEyebrow.classList.remove('top-[35%]');
+                leftEyebrow.classList.add('top-[30%]');
+                rightEyebrow.classList.remove('top-[35%]');
+                rightEyebrow.classList.add('top-[30%]');
+                
+                whiskersLeft.style.transform = 'translateX(-4px) rotate(-2deg)';
+                whiskersRight.style.transform = 'translateX(4px) rotate(2deg)';
+            }
+
+            function setCalm() {
+                resetFace();
+            }
+
+            let autoChangeInterval = null;
+            let manualModeTimeout = null;
+            const emotions = ['happy', 'sad', 'angry', 'surprised', 'calm'];
+            const emotionFunctions = {
+                'happy': setHappy,
+                'sad': setSad,
+                'angry': setAngry,
+                'surprised': setSurprised,
+                'calm': setCalm 
+            };
+
+            function changeRandomEmotion() {
+                const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
+                emotionFunctions[randomEmotion]();
+            }
+
+            function startAutoChange() {
+                clearInterval(autoChangeInterval); 
+                autoChangeInterval = setInterval(changeRandomEmotion, 5000); 
+            }
+
+            function stopAutoChange() {
+                clearInterval(autoChangeInterval);
+            }
+
+            function handleManualEmotion(emotionFunction) {
+                stopAutoChange(); 
+                clearTimeout(manualModeTimeout); 
+                emotionFunction(); 
+                manualModeTimeout = setTimeout(() => {
+                    startAutoChange();
+                }, 10000); 
+            }
+
+            // (Emotion товчнууд chat-section дотор орсон тул алдаа өгөхгүй)
+            document.getElementById('btn-happy').addEventListener('click', () => handleManualEmotion(setHappy));
+            document.getElementById('btn-sad').addEventListener('click', () => handleManualEmotion(setSad));
+            document.getElementById('btn-angry').addEventListener('click', () => handleManualEmotion(setAngry));
+            document.getElementById('btn-surprised').addEventListener('click', () => handleManualEmotion(setSurprised));
+            document.getElementById('btn-calm').addEventListener('click', () => handleManualEmotion(setCalm));
+
+            startAutoChange();
+
+            // --- CHAT LOGIC (v12 - СЕРВЕР РҮҮ ХАНДДАГ) ---
+            const chatHistory = document.getElementById('chat-history');
+            const chatInput = document.getElementById('chat-input');
+            const sendButton = document.getElementById('send-button');
+            const chatHistoryMessages = []; // Чатын түүхийг хадгалах (Context-д зориулсан)
+
+            // "Илгээх" товч дарвал
+            sendButton.addEventListener('click', sendMessage);
+            
+            // "Enter" товч дарвал
+            chatInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+
+            function sendMessage() {
+                const messageText = chatInput.value.trim();
+                if (messageText === '') return;
+
+                // Хэрэглэгчийн мессежийг дэлгэцэнд харуулах
+                displayMessage(messageText, 'User');
+                
+                // Чатын түүхэнд нэмэх
+                chatHistoryMessages.push({ role: 'user', content: messageText });
+
+                // Input-г цэвэрлэх
+                chatInput.value = '';
+
+                // API-г дуудах (ӨӨРИЙН СЕРВЕР РҮҮ)
+                callLocalServer(chatHistoryMessages);
+            }
+
+            function displayMessage(message, sender) {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('mb-2');
+                
+                if (sender === 'User') {
+                    messageElement.innerHTML = `
+                        <span class="font-bold text-blue-600">Та:</span>
+                        <span class="text-gray-700">${message}</span>
+                    `;
+                } else {
+                    messageElement.innerHTML = `
+                        <span class="font-bold text-purple-600">LOOI:</span>
+                        <span class="text-gray-700">${message}</span>
+                    `;
+                }
+                
+                chatHistory.appendChild(messageElement);
+                // Шинэ мессеж ирэхэд доош гүйлгэх
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+
+            // *** API-Н ФУНКЦ (v12 - ӨӨРИЙН СЕРВЕР РҮҮ ХАНДАХ) ---
+            function callLocalServer(messages) {
+                // Түр "Бичиж байна..." гэж харуулах
+                displayMessage('...', 'LOOI');
+
+                // --- ӨӨРИЙН СЕРВЕР РҮҮ ХҮСЭЛТ ЯВУУЛАХ ---
+                const apiUrl = 'http://localhost:3000/chat'; // Бидний үүсгэх серверийн хаяг
+                
+                fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        // Зөвхөн сүүлийн хэдэн мессежийг явуулах, эсвэл бүгдийг нь
+                        messages: messages 
+                    })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.error || 'Серверээс алдаа гарлаа');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Серверээс ирсэн хариултыг (ChatGPT-н хариулт) авах
+                    const botResponse = data.response;
+                    
+                    // Хариултыг түүхэнд нэмэх
+                    chatHistoryMessages.push({ role: 'assistant', content: botResponse });
+                    
+                    // "..." гэж байсан мессежийг жинхэнэ хариултаар солих
+                    const loadingMessage = chatHistory.lastChild;
+                    loadingMessage.innerHTML = `
+                        <span class="font-bold text-purple-600">LOOI:</span>
+                        <span class="text-gray-700">${botResponse}</span>
+                    `;
+                    chatHistory.scrollTop = chatHistory.scrollHeight;
+                })
+                .catch(error => {
+                    console.error('Server Error:', error);
+                    const loadingMessage = chatHistory.lastChild;
+                    loadingMessage.innerHTML = `
+                        <span class="font-bold text-red-600">Алдаа:</span>
+                        <span class="text-gray-700">${error.message}. 'node server.js' ажиллаж байгаа эсэхийг шалгана уу.</span>
+                    `;
+                    chatHistory.scrollTop = chatHistory.scrollHeight;
+                    
+                    // Алдаа гарсан тул сүүлийн хэрэглэгчийн мессежийг түүхээс устгах
+                    chatHistoryMessages.pop();
+                });
+                // --- ХҮСЭЛТ ДУУСАВ ---
+            }
+        });
+    </script>
+
+</body>
+</html>
+
